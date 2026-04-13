@@ -8,11 +8,11 @@ class Evaluator:
     
     def update(self, labels, preds):
         mask = (labels >= 0) & (labels < self.num_classes)
-        self.confusion_matrix += confusion_matrix(labels[mask], preds[mask], labels=range(self.num_classes))
+        self.confusion_matrix += confusion_matrix(labels[mask].flatten(), preds[mask].flatten(), labels=range(self.num_classes))
 
     def compute_metrics(self):
-        cm = self.compute_metrics
-        oa = np.trace(cm) / np.sum
+        cm = self.confusion_matrix
+        oa = np.trace(cm) / np.sum(cm)
 
         # kappa
         total = np.sum(cm)

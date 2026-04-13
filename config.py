@@ -1,10 +1,11 @@
+import os
 import torch
 
 class Config:
-    dataset_root = "dataset/openearthmap-sar/train"
+    dataset_root = os.path.join("dataset", "openearthmap-sar", "train")
     save_directory = "checkpoints"
 
-    number_classes = 8
+    num_classes = 8
     image_size = 1024
     train_size = 0.7
     val_size = 0.1
@@ -12,11 +13,12 @@ class Config:
 
     # hyperparamters
     epochs = 10
-    batchsize = 8
+    batch_size = 8
     learning_rate = 3e-3
+    weight_decay = 1e-4
 
     optical_channels = 3
-    sar_channels = 2
+    sar_channels = 1
     patch_size = 128
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
