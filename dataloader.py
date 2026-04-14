@@ -7,8 +7,12 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms  # Crucial import
 from sklearn.model_selection import train_test_split
 
+import collections
+if not hasattr(collections, 'Iterable'):
+    collections.Iterable = collections.abc.Iterable
+
 class OpenEarthMapSarDataset(Dataset):
-    def __init__(self, dataset_directory):
+    def __init__(self, dataset_directory, image_size):
         self.dataset_directory = dataset_directory
         self.optical_path = os.path.join(dataset_directory, "rgb_images")
         self.sar_path = os.path.join(dataset_directory, "sar_images")
@@ -16,6 +20,17 @@ class OpenEarthMapSarDataset(Dataset):
 
         self.filenames = [f for f in os.listdir(self.optical_path) if f.endswith('.tif')]
 
+        self.image_size = image_size
+        
+        # Define resize
+        self.optical_transform = transforms.Compose([
+            transforms.Resize((self.image_size, self.image_size)),
+            transforms.ToTensor(),
+        ])
+        
+        self.label_transform = transforms.Compose([
+            transforms.Resize((self.image_size, self.image_size), interpolation=Image.NEAREST)  # Keep label integers
+        ])
 
     def __len__(self):
         return len(self.filenames)
@@ -37,21 +52,34 @@ class OpenEarthMapSarDataset(Dataset):
             sar_images = sar_images.transpose(2, 0, 1)
         
         label_images = Image.open(os.path.join(self.label_path, fname))
+        
+        # convert to single label classifcation
+        label = self.label_transform(label_images)
+        label_np = np.array(label)
+        mode_label = np.argmax(np.bincount(label_np.flatten()))
+        label = torch.tensor(mode_label -1).long()
+        # 
 
         # convert to tensor
         optical = transforms.ToTensor()(optical_images)
+        optical = self.optical_transform(optical_images)
+
         sar = torch.from_numpy(sar_images).float()
         sar = sar / 255.0
-    
+        sar = torch.nn.functional.interpolate(sar.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear', align_corners=False).squeeze(0) #resize
         # sar = transforms.ToTensor()(sar)
-        label = torch.from_numpy(np.array(label_images)).long()
+    
+        # segmentation
+        # label = torch.from_numpy(np.array(label_images)).long()
+        # label = self.label_transform(label_images)
+        # label = torch.from_numpy(np.array(label)).long()
 
         # transforms
 
         return optical, sar, label
 
 def get_dataloader(config):
-    data = OpenEarthMapSarDataset(config.dataset_root)
+    data = OpenEarthMapSarDataset(config.dataset_root, config.image_size)
     indices = np.arange(len(data))
 
     train_index, temp_index = train_test_split(indices, train_size=config.train_size, random_state=42, shuffle=True)
