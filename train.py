@@ -10,6 +10,7 @@ from tqdm import tqdm
 from Network import SoftFormer
 
 def train():
+    result = []
     config = Config()
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
@@ -35,10 +36,6 @@ def train():
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.epochs} [Train]")
         for opt, sar, label in progress_bar:
             opt, sar, label = opt.to(config.device), sar.to(config.device), label.to(config.device)
-            label = label.squeeze().long()
-
-            print(f"\n\nlabel: {label.squeeze()}\n\n\n")
-            print(f"Label Min: {label.min()}, Label Max: {label.max()}, Num Classes: {config.num_classes}")
 
             optimizer.zero_grad()
             outputs = model(opt, sar)
@@ -51,28 +48,40 @@ def train():
 
         scheduler.step()
 
-        if epoch % 5 == 0:
-            model.eval()
-            evaluator.reset()
-            val_progress_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{config.epochs} [Val]")
+        model.eval()
+        evaluator.reset()
+        val_progress_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{config.epochs} [Val]")
             
-            with torch.no_grad():
-                for opt, sar, label in val_progress_bar:
-                    opt, sar = opt.to(config.device), sar.to(config.device)
-                    val_outputs = model(opt, sar)
-                    preds = val_outputs[0].argmax(dim=1)
-                    evaluator.update(label.numpy(), preds.cpu().numpy())
-            
-            metrics = evaluator.compute_metrics()
-            print(f"")
+        with torch.no_grad():
+            for i, (opt, sar, label) in enumerate(val_progress_bar):
+                opt, sar = opt.to(config.device), sar.to(config.device)
+                val_outputs = model(opt, sar)
+                preds = val_outputs[0].argmax(dim=1)
+                   
+                evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
-            checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
-            torch.save(checkpoint, os.path.join(config.save_directory, "model.pth"))
+                # if i == 0:
+                    # preds = val_outputs[0].argmax(dim=1)
+                    # pred = preds.unsqueeze(1).float()
+                    # pred = pred / preds.max()
+                    # save_image(preds[0], f'prediction_epoch{epoch+1}.png')
+            
+        metrics = evaluator.compute_metrics()
+        result.append({
+            'epoch': epoch + 1,
+            'OA': metrics['OA'],
+            'mIoU': metrics['mIoU'],
+            'Kappa': metrics['Kappa']
+        })
+
+        checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
+        torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}.pth"))
 
     metrics = evaluator.compute_metrics()
     checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
     torch.save(checkpoint, os.path.join(config.save_directory, "model.pth"))
 
+    print(result)
 
 if __name__ == "__main__":
     train()
