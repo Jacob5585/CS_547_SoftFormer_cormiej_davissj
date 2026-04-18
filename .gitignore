@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 
 dataset/openearthmap-sar
+checkpoints/*.pth

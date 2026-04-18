@@ -3,9 +3,10 @@ import torch
 import numpy as np
 from PIL import Image
 import tifffile as tiff
-from torch.utils.data import Dataset, DataLoader, Subset
-from torchvision import transforms  # Crucial import
+from torch.utils.data import Dataset, DataLoader, Subset, default_collate
+from torchvision import transforms
 from sklearn.model_selection import train_test_split
+import patching
 
 import collections
 if not hasattr(collections, 'Iterable'):
@@ -52,13 +53,6 @@ class OpenEarthMapSarDataset(Dataset):
             sar_images = sar_images.transpose(2, 0, 1)
         
         label_images = Image.open(os.path.join(self.label_path, fname))
-        
-        # convert to single label classifcation
-        label = self.label_transform(label_images)
-        label_np = np.array(label)
-        mode_label = np.argmax(np.bincount(label_np.flatten()))
-        label = torch.tensor(mode_label -1).long()
-        # 
 
         # convert to tensor
         optical = transforms.ToTensor()(optical_images)
@@ -69,10 +63,8 @@ class OpenEarthMapSarDataset(Dataset):
         sar = torch.nn.functional.interpolate(sar.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear', align_corners=False).squeeze(0) #resize
         # sar = transforms.ToTensor()(sar)
     
-        # segmentation
-        # label = torch.from_numpy(np.array(label_images)).long()
-        # label = self.label_transform(label_images)
-        # label = torch.from_numpy(np.array(label)).long()
+        label = self.label_transform(label_images)
+        label = torch.from_numpy(np.array(label)).long() - 1
 
         # transforms
 
@@ -82,37 +74,70 @@ def get_dataloader(config):
     data = OpenEarthMapSarDataset(config.dataset_root, config.image_size)
     indices = np.arange(len(data))
 
+    def _custom_collate(batch):
+        opt, sar, label = default_collate(batch)
+
+        if config.method == "classification":
+            opt = patching.pre_patch_batch(opt, config.patch_size)
+            sar = patching.pre_patch_batch(sar, config.patch_size)
+            label = patching.patchify_labels(label, config.patch_size)
+        
+        return opt, sar, label
+
     train_index, temp_index = train_test_split(indices, train_size=config.train_size, random_state=42, shuffle=True)
     val_index, test_index = train_test_split(temp_index, train_size=config.val_size, random_state=42, shuffle=True)
 
-    train_loader = DataLoader(Subset(data, train_index), batch_size=config.batch_size, shuffle=True)
-    val_loader = DataLoader(Subset(data, val_index), batch_size=config.batch_size, shuffle=False)
-    test_loader = DataLoader(Subset(data, test_index), batch_size=config.batch_size, shuffle=False)
+    train_loader = DataLoader(
+        Subset(data, train_index), 
+        batch_size=config.batch_size, 
+        shuffle=True, 
+        collate_fn=_custom_collate,
+        num_workers=4
+    )
+
+    val_loader = DataLoader(
+        Subset(data, val_index), 
+        batch_size=config.batch_size, 
+        shuffle=True, 
+        collate_fn=_custom_collate,
+        num_workers=4
+    )
+
+    test_loader = DataLoader(
+        Subset(data, test_index), 
+        batch_size=config.batch_size, 
+        shuffle=True, 
+        collate_fn=_custom_collate,
+        num_workers=4
+    )
+
+    # train_loader = DataLoader(Subset(data, train_index), batch_size=config.batch_size, shuffle=True, drop_last=True)
+    # val_loader = DataLoader(Subset(data, val_index), batch_size=config.batch_size, shuffle=False, drop_last=True)
+    # test_loader = DataLoader(Subset(data, test_index), batch_size=config.batch_size, shuffle=False, drop_last=True)
 
     return train_loader, val_loader, test_loader
 
 
-if __name__ == "__main__":
-    # from config import Config
-    # config = Config()
-    # dataset = OpenEarthMapSarDataset(config.dataset_root)
+# if __name__ == "__main__":
+#     # from config import Config
+#     # config = Config()
+#     # dataset = OpenEarthMapSarDataset(config.dataset_root)
     
-    # # Check the first 5 images
-    # for i in range(5):
-    #     opt, sar, lbl = dataset[i]
-    #     print(f"Sample {i}: Optical shape {opt.shape}, SAR shape {sar.shape}")
+#     # # Check the first 5 images
+#     # for i in range(5):
+#     #     opt, sar, lbl = dataset[i]
+#     #     print(f"Sample {i}: Optical shape {opt.shape}, SAR shape {sar.shape}")
 
-    import tifffile
-    sample_file = r".\dataset\openearthmap-sar\train\sar_images\TrainArea_003.tif"
+#     import tifffile
+#     sample_file = r".\dataset\openearthmap-sar\train\sar_images\TrainArea_003.tif"
 
-    # If you don't know a filename, let's grab the first one automatically:
-    # sample_dir = r".\dataset\openearthmap-sar\train\sar_images"
-    # sample_file = os.path.join(sample_dir, os.listdir(sample_dir)[0])
+#     # sample_dir = r".\dataset\openearthmap-sar\train\sar_images"
+#     # sample_file = os.path.join(sample_dir, os.listdir(sample_dir)[0])
 
-    with tifffile.TiffFile(sample_file) as tif:
-        data = tif.asarray()
-        print(f"File: {os.path.basename(sample_file)}")
-        print(f"Number of series/pages: {len(tif.series)}")
-        print(f"Shape: {data.shape}")
+#     with tifffile.TiffFile(sample_file) as tif:
+#         data = tif.asarray()
+#         print(f"File: {os.path.basename(sample_file)}")
+#         print(f"Number of series/pages: {len(tif.series)}")
+#         print(f"Shape: {data.shape}")
 
-        # ONE channel? dataset should have been 2
+#         # ONE channel? dataset should have been 2

@@ -9,6 +9,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 from Network import SoftFormer
 
+scaler = torch.cuda.amp.GradScaler()
+
 def train():
     result = []
     config = Config()
@@ -18,7 +20,7 @@ def train():
             opt_chans=config.optical_channels,
             sar_chans=config.sar_channels,
             num_class=config.num_classes,
-            img_size=config.image_size
+            img_size=config.patch_size
         ).to(config.device)
     
     optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
@@ -37,13 +39,17 @@ def train():
         for opt, sar, label in progress_bar:
             opt, sar, label = opt.to(config.device), sar.to(config.device), label.to(config.device)
 
-            optimizer.zero_grad()
-            outputs = model(opt, sar)
-            loss = criterion(outputs[0], label)
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
+            optimizer.zero_grad(set_to_none=True)
 
+            with torch.cuda.amp.autocast():
+                outputs = model(opt, sar)
+                loss = criterion(outputs[0], label)
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            epoch_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
 
         scheduler.step()
@@ -60,12 +66,6 @@ def train():
                    
                 evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
-                # if i == 0:
-                    # preds = val_outputs[0].argmax(dim=1)
-                    # pred = preds.unsqueeze(1).float()
-                    # pred = pred / preds.max()
-                    # save_image(preds[0], f'prediction_epoch{epoch+1}.png')
-            
         metrics = evaluator.compute_metrics()
         result.append({
             'epoch': epoch + 1,
@@ -76,6 +76,10 @@ def train():
 
         checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
         torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}.pth"))
+        
+        if metrics['mIoU'] > best_miou:
+            best_miou = metrics['mIoU']
+            torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}_best_mIoU.pth"))
 
     metrics = evaluator.compute_metrics()
     checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
