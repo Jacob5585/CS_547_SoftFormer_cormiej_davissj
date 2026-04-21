@@ -2,6 +2,7 @@ from config import Config
 import dataloader
 import evaluation
 import os
+import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,10 +10,10 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 from Network import SoftFormer
 
-scaler = torch.cuda.amp.GradScaler()
+scaler = torch.amp.GradScaler('cuda')
 
 def train():
-    result = []
+    results = []
     config = Config()
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
@@ -20,7 +21,7 @@ def train():
             opt_chans=config.optical_channels,
             sar_chans=config.sar_channels,
             num_class=config.num_classes,
-            img_size=config.patch_size if config.method == "classification" elif config.method == "segmentation" config.image_size
+            img_size=config.patch_size if config.method == "classification" else config.image_size
         ).to(config.device)
     
     optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
@@ -41,7 +42,7 @@ def train():
 
             optimizer.zero_grad(set_to_none=True)
 
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 outputs = model(opt, sar)
                 loss = criterion(outputs[0], label)
             
@@ -67,7 +68,7 @@ def train():
                 evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
         metrics = evaluator.compute_metrics()
-        result.append({
+        results.append({
             'epoch': epoch + 1,
             'OA': metrics['OA'],
             'mIoU': metrics['mIoU'],
@@ -85,7 +86,9 @@ def train():
     checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
     torch.save(checkpoint, os.path.join(config.save_directory, "model.pth"))
 
-    print(result)
+    print(results)
+    with open('metrics_train.json', 'w') as file:
+        json.dump(results, file, indent=4)
 
 if __name__ == "__main__":
     train()

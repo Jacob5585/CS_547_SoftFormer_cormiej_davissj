@@ -7,10 +7,22 @@ from torch.utils.data import Dataset, DataLoader, Subset, default_collate
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
 import patching
+from functools import partial
 
 import collections
 if not hasattr(collections, 'Iterable'):
     collections.Iterable = collections.abc.Iterable
+
+# Moved do to windows
+def _custom_collate(batch, config):
+        opt, sar, label = default_collate(batch)
+
+        if config.method == "classification":
+            opt = patching.pre_patch_batch(opt, config.patch_size)
+            sar = patching.pre_patch_batch(sar, config.patch_size)
+            label = patching.patchify_labels(label, config.patch_size)
+        
+        return opt, sar, label
 
 class OpenEarthMapSarDataset(Dataset):
     def __init__(self, dataset_directory, image_size):
@@ -74,40 +86,43 @@ def get_dataloader(config):
     data = OpenEarthMapSarDataset(config.dataset_root, config.image_size)
     indices = np.arange(len(data))
 
-    def _custom_collate(batch):
-        opt, sar, label = default_collate(batch)
+    # local func is throwing errors on windows
+    # def _custom_collate(batch):
+    #     opt, sar, label = default_collate(batch)
 
-        if config.method == "classification":
-            opt = patching.pre_patch_batch(opt, config.patch_size)
-            sar = patching.pre_patch_batch(sar, config.patch_size)
-            label = patching.patchify_labels(label, config.patch_size)
+    #     if config.method == "classification":
+    #         opt = patching.pre_patch_batch(opt, config.patch_size)
+    #         sar = patching.pre_patch_batch(sar, config.patch_size)
+    #         label = patching.patchify_labels(label, config.patch_size)
         
-        return opt, sar, label
+    #     return opt, sar, label
 
     train_index, temp_index = train_test_split(indices, train_size=config.train_size, random_state=42, shuffle=True)
     val_index, test_index = train_test_split(temp_index, train_size=config.val_size, random_state=42, shuffle=True)
+
+    collate_fn = partial(_custom_collate, config=config)
 
     train_loader = DataLoader(
         Subset(data, train_index), 
         batch_size=config.batch_size, 
         shuffle=True, 
-        collate_fn=_custom_collate,
+        collate_fn=collate_fn,
         num_workers=4
     )
 
     val_loader = DataLoader(
         Subset(data, val_index), 
         batch_size=config.batch_size, 
-        shuffle=True, 
-        collate_fn=_custom_collate,
+        shuffle=False, 
+        collate_fn=collate_fn,
         num_workers=4
     )
 
     test_loader = DataLoader(
         Subset(data, test_index), 
         batch_size=config.batch_size, 
-        shuffle=True, 
-        collate_fn=_custom_collate,
+        shuffle=False, 
+        collate_fn=collate_fn,
         num_workers=4
     )
 

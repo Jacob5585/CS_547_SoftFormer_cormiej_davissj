@@ -16,8 +16,8 @@ class Config:
     # method = "segmentation"
 
     # hyperparamters
-    epochs = 10
-    batch_size = 10 #1024
+    epochs = 2
+    batch_size = 10
     learning_rate = 3e-3
     weight_decay = 1e-4
 
