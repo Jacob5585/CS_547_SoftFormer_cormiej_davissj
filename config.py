@@ -12,12 +12,12 @@ class Config:
     train_size = 0.7
     val_size = 0.1
     test_size = 0.2
-    method = "classification"
-    # method = "segmentation"
+    # method = "classification"
+    method = "segmentation"
 
     # hyperparamters
     epochs = 10
-    batch_size = 10 #1024
+    batch_size = 1 #1024
     learning_rate = 3e-3
     weight_decay = 1e-4
 

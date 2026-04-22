@@ -16,11 +16,13 @@ def train():
     config = Config()
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
+    # choose image size based on method
+    img_size = config.patch_size if config.method == "classification" else config.image_size
     model = SoftFormer(
             opt_chans=config.optical_channels,
             sar_chans=config.sar_channels,
             num_class=config.num_classes,
-            img_size=config.patch_size if config.method == "classification" elif config.method == "segmentation" config.image_size
+            img_size=img_size,
         ).to(config.device)
     
     optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)

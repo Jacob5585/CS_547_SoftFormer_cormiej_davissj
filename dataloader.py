@@ -81,18 +81,23 @@ def get_dataloader(config):
             opt = patching.pre_patch_batch(opt, config.patch_size)
             sar = patching.pre_patch_batch(sar, config.patch_size)
             label = patching.patchify_labels(label, config.patch_size)
+        else:
+            # For segmentation we keep the full image resolution and spatial labels.
+            # The network will predict a per-pixel segmentation map rather than a patch label.
+            pass
         
         return opt, sar, label
 
     train_index, temp_index = train_test_split(indices, train_size=config.train_size, random_state=42, shuffle=True)
     val_index, test_index = train_test_split(temp_index, train_size=config.val_size, random_state=42, shuffle=True)
 
+
     train_loader = DataLoader(
         Subset(data, train_index), 
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=_custom_collate,
-        num_workers=4
+        num_workers=0
     )
 
     val_loader = DataLoader(
@@ -100,7 +105,7 @@ def get_dataloader(config):
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=_custom_collate,
-        num_workers=4
+        num_workers=0
     )
 
     test_loader = DataLoader(
@@ -108,7 +113,7 @@ def get_dataloader(config):
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=_custom_collate,
-        num_workers=4
+        num_workers=0
     )
 
     # train_loader = DataLoader(Subset(data, train_index), batch_size=config.batch_size, shuffle=True, drop_last=True)
