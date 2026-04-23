@@ -12,6 +12,8 @@ from Network import SoftFormer
 
 scaler = torch.amp.GradScaler('cuda')
 
+CHECKPOINT_PATH = "checkpoints.model_18_best_mIoU.pth"
+
 def train():
     results = []
     config = Config()
@@ -31,6 +33,26 @@ def train():
 
     # Mean Intersection over Union (mIoU) 
     best_miou = 0.0
+
+    if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
+        print(f"Loading checkpoint: {CHECKPOINT_PATH}")
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=config.device)
+        
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        
+        # Resume from the next epoch
+        start_epoch = checkpoint['epoch'] + 1
+        
+        # Restore best_miou if it exists in the saved metrics
+        if 'metrics' in checkpoint:
+            best_miou = checkpoint['metrics'].get('mIoU', 0.0)
+            
+        # Update scheduler to match the current epoch
+        for _ in range(start_epoch):
+            scheduler.step()
+            
+        print(f"Resuming from epoch {start_epoch}")
 
     for epoch in range(config.epochs):
         model.train()
@@ -68,12 +90,16 @@ def train():
                 evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
         metrics = evaluator.compute_metrics()
-        results.append({
+        result = {
             'epoch': epoch + 1,
             'OA': metrics['OA'],
             'mIoU': metrics['mIoU'],
             'Kappa': metrics['Kappa']
-        })
+        }
+        results.append(result)
+        
+        with open('metrics_train.json', 'a') as file:
+            json.dump(result, file, indent=4)
 
         checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
         torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}.pth"))
@@ -87,8 +113,6 @@ def train():
     torch.save(checkpoint, os.path.join(config.save_directory, "model.pth"))
 
     print(results)
-    with open('metrics_train.json', 'w') as file:
-        json.dump(results, file, indent=4)
 
 if __name__ == "__main__":
     train()
