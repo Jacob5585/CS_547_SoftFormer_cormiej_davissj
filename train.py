@@ -12,7 +12,7 @@ from Network import SoftFormer
 
 scaler = torch.amp.GradScaler('cuda')
 
-CHECKPOINT_PATH = "checkpoints.model_18_best_mIoU.pth"
+CHECKPOINT_PATH = "checkpoints/model_18_best_mIoU.pth"
 
 def train():
     results = []
@@ -36,7 +36,7 @@ def train():
 
     if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
         print(f"Loading checkpoint: {CHECKPOINT_PATH}")
-        checkpoint = torch.load(CHECKPOINT_PATH, map_location=config.device)
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=config.device, weights_only=False)
         
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
