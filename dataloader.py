@@ -14,7 +14,7 @@ if not hasattr(collections, 'Iterable'):
     collections.Iterable = collections.abc.Iterable
 
 # Moved do to windows
-def _custom_collate(batch, config):
+def custom_collate(batch, config):
         opt, sar, label = default_collate(batch)
 
         if config.method == "classification":
@@ -86,49 +86,34 @@ def get_dataloader(config):
     data = OpenEarthMapSarDataset(config.dataset_root, config.image_size)
     indices = np.arange(len(data))
 
-    # local func is throwing errors on windows
-    # def _custom_collate(batch):
-    #     opt, sar, label = default_collate(batch)
-
-    #     if config.method == "classification":
-    #         opt = patching.pre_patch_batch(opt, config.patch_size)
-    #         sar = patching.pre_patch_batch(sar, config.patch_size)
-    #         label = patching.patchify_labels(label, config.patch_size)
-        
-    #     return opt, sar, label
-
     train_index, temp_index = train_test_split(indices, train_size=config.train_size, random_state=42, shuffle=True)
     val_index, test_index = train_test_split(temp_index, train_size=config.val_size, random_state=42, shuffle=True)
 
-    collate_fn = partial(_custom_collate, config=config)
+    collate_fn = partial(custom_collate, config=config)
 
     train_loader = DataLoader(
         Subset(data, train_index), 
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=collate_fn,
-        num_workers=4
+        num_workers=0
     )
 
     val_loader = DataLoader(
         Subset(data, val_index), 
         batch_size=config.batch_size, 
-        shuffle=False, 
+        shuffle=True, 
         collate_fn=collate_fn,
-        num_workers=4
+        num_workers=0
     )
 
     test_loader = DataLoader(
         Subset(data, test_index), 
         batch_size=config.batch_size, 
-        shuffle=False, 
+        shuffle=True, 
         collate_fn=collate_fn,
-        num_workers=4
+        num_workers=0
     )
-
-    # train_loader = DataLoader(Subset(data, train_index), batch_size=config.batch_size, shuffle=True, drop_last=True)
-    # val_loader = DataLoader(Subset(data, val_index), batch_size=config.batch_size, shuffle=False, drop_last=True)
-    # test_loader = DataLoader(Subset(data, test_index), batch_size=config.batch_size, shuffle=False, drop_last=True)
 
     return train_loader, val_loader, test_loader
 

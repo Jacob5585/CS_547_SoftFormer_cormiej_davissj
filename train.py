@@ -18,6 +18,8 @@ def train():
     config = Config()
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
+    # choose image size based on method
+    img_size = config.patch_size if config.method == "classification" else config.image_size
     model = SoftFormer(
             opt_chans=config.optical_channels,
             sar_chans=config.sar_channels,

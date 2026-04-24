@@ -130,3 +130,6 @@ dmypy.json
 
 dataset/openearthmap-sar
 checkpoints/*.pth
+
+#Dataset
+/dataset/*

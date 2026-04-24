@@ -17,8 +17,8 @@ class Config:
     checkpoint_path = ""
 
     # hyperparamters
-    epochs = 2
-    batch_size = 10
+    epochs = 50
+    batch_size = 10 #1024
     learning_rate = 3e-3
     weight_decay = 1e-4
 
