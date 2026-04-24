@@ -96,6 +96,7 @@ def train(config):
         if isinstance(result['Class_F1'], np.ndarray):
             result['Class_F1'] = result['Class_F1'].tolist()
 
+        result = {}
         results.append(result)
         
         with open(f'metrics_{config.method}_train.jsonl', 'a') as file:
