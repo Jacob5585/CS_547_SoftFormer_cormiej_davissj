@@ -3,6 +3,7 @@ import dataloader
 import evaluation
 import os
 import json
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,8 +12,6 @@ from tqdm import tqdm
 from Network import SoftFormer
 
 scaler = torch.amp.GradScaler('cuda')
-
-CHECKPOINT_PATH = "checkpoints/model_18_best_mIoU.pth"
 
 def train():
     results = []
@@ -34,9 +33,9 @@ def train():
     # Mean Intersection over Union (mIoU) 
     best_miou = 0.0
 
-    if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
-        print(f"Loading checkpoint: {CHECKPOINT_PATH}")
-        checkpoint = torch.load(CHECKPOINT_PATH, map_location=config.device, weights_only=False)
+    if config.checkpoint_path and os.path.exists(config.checkpoint_path):
+        print(f"Loading checkpoint: {config.checkpoint_path}")
+        checkpoint = torch.load(config.checkpoint_path, map_location=config.device, weights_only=False)
         
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -98,7 +97,7 @@ def train():
         }
         results.append(result)
         
-        with open('metrics_train.json', 'a') as file:
+        with open(f'metrics_{config.method}_train.json', 'a') as file:
             json.dump(result, file, indent=4)
 
         checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
@@ -114,5 +113,28 @@ def train():
 
     print(results)
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate a trained SoftFormer model.")
+    parser.add_argument("--dataset-root", default=None, help="Override dataset root from config.")
+    parser.add_argument("--method", default=None, choices=["classification", "segmentation"], help="Model method to evaluate.")
+    parser.add_argument("--batch-size", type=int, default=None, help="Override batch size from config.")
+    parser.add_argument("--epochs", type=int, default=None, help="Override epochs from config.")
+    parser.add_argument("--checkpoint_path", default=None, help="Checkpoint to load from")
+    args = parser.parse_args()
+
+    config = Config()
+    if args.dataset_root:
+        config.dataset_root = args.dataset_root
+    if args.method:
+        config.method = args.method
+    if args.batch_size:
+        config.batch_size = args.batch_size
+    if args.epochs:
+        config.epochs = args.epochs
+    if args.checkpoint_path:
+        config.checkpoint_path = args.checkpoint_path
+
     train()
+
+if __name__ == "__main__":
+    main()

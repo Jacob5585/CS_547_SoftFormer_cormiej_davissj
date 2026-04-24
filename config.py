@@ -14,6 +14,7 @@ class Config:
     test_size = 0.2
     method = "classification"
     # method = "segmentation"
+    checkpoint_path = ""
 
     # hyperparamters
     epochs = 2
