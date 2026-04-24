@@ -5,6 +5,7 @@ from PIL import Image
 import tifffile as tiff
 from torch.utils.data import Dataset, DataLoader, Subset, default_collate
 from torchvision import transforms, tv_tensors
+from torchvision.transforms import v2
 from sklearn.model_selection import train_test_split
 import patching
 from functools import partial
@@ -34,6 +35,9 @@ class AugmentatSubset(Subset):
         self.dataset.augment = self.augment
         return self.dataset[self.indices[idx]]
 
+    def __getitems__(self, indices):
+        return [self.__getitem__(idx) for idx in indices]
+
 class OpenEarthMapSarDataset(Dataset):
     def __init__(self, dataset_directory, image_size):
         self.dataset_directory = dataset_directory
@@ -55,15 +59,15 @@ class OpenEarthMapSarDataset(Dataset):
             transforms.Resize((self.image_size, self.image_size), interpolation=Image.NEAREST)  # Keep label integers
         ])
 
-        self.base_agumentation = transforms.v2.Compose([
-            transforms.v2.RandomHorizontalFlip(p=0.5),
-            transforms.v2.RandomVerticalFlip(p=0.5),
-            transforms.v2.RandomRotation(degrees=15),
+        self.base_agumentation = v2.Compose([
+            v2.RandomHorizontalFlip(p=0.5),
+            v2.RandomVerticalFlip(p=0.5),
+            v2.RandomRotation(degrees=15),
         ])
 
-        self.optical_augumentation = transforms.v2.Compose([
-            transforms.v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.01),
-            transforms.v2.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
+        self.optical_augumentation = v2.Compose([
+            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.01),
+            v2.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
         ])
 
     def __len__(self):

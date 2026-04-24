@@ -13,9 +13,9 @@ from Network import SoftFormer
 
 scaler = torch.amp.GradScaler('cuda')
 
-def train():
+def train(config):
     results = []
-    config = Config()
+    start_epoch = 0
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
     # choose image size based on method
@@ -55,7 +55,7 @@ def train():
             
         print(f"Resuming from epoch {start_epoch}")
 
-    for epoch in range(config.epochs):
+    for epoch in range(start_epoch, config.epochs):
         model.train()
         epoch_loss = 0
 
@@ -91,23 +91,22 @@ def train():
                 evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
         metrics = evaluator.compute_metrics()
-        result = {
-            'epoch': epoch + 1,
-            'OA': metrics['OA'],
-            'mIoU': metrics['mIoU'],
-            'Kappa': metrics['Kappa']
-        }
+        result.update(metrics)
+        
+        if isinstance(result['Class_F1'], np.ndarray):
+            result['Class_F1'] = result['Class_F1'].tolist()
+
         results.append(result)
         
-        with open(f'metrics_{config.method}_train.json', 'a') as file:
-            json.dump(result, file, indent=4)
+        with open(f'metrics_{config.method}_train.jsonl', 'a') as file:
+            file.write(json.dumps(result) + '\n')
 
         checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
-        torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}.pth"))
+        torch.save(checkpoint, os.path.join(config.save_directory, f"model_{config.method}_{epoch}.pth"))
         
         if metrics['mIoU'] > best_miou:
             best_miou = metrics['mIoU']
-            torch.save(checkpoint, os.path.join(config.save_directory, f"model_{epoch}_best_mIoU.pth"))
+            torch.save(checkpoint, os.path.join(config.save_directory, f"model_{config.method}_{epoch}_best_mIoU.pth"))
 
     metrics = evaluator.compute_metrics()
     checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
@@ -125,18 +124,18 @@ def main():
     args = parser.parse_args()
 
     config = Config()
-    if args.dataset_root:
+    if args.dataset_root is not None:
         config.dataset_root = args.dataset_root
-    if args.method:
+    if args.method is not None:
         config.method = args.method
-    if args.batch_size:
+    if args.batch_size is not None:
         config.batch_size = args.batch_size
-    if args.epochs:
+    if args.epochs is not None:
         config.epochs = args.epochs
-    if args.checkpoint_path:
+    if args.checkpoint_path is not None:
         config.checkpoint_path = args.checkpoint_path
 
-    train()
+    train(config)
 
 if __name__ == "__main__":
     main()
