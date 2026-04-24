@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 import tifffile as tiff
 from torch.utils.data import Dataset, DataLoader, Subset, default_collate
-from torchvision import transforms
+from torchvision import transforms, tv_tensors
 from sklearn.model_selection import train_test_split
 import patching
 from functools import partial
@@ -24,6 +24,16 @@ def custom_collate(batch, config):
         
         return opt, sar, label
 
+class AugmentatSubset(Subset):
+    def __init__(self, dataset, indices, augment=False):
+        super().__init__(dataset, indices)
+        self.augment = augment
+
+    def __getitem__(self, idx):
+        # Temporarily enable augmentation on the base dataset
+        self.dataset.augment = self.augment
+        return self.dataset[self.indices[idx]]
+
 class OpenEarthMapSarDataset(Dataset):
     def __init__(self, dataset_directory, image_size):
         self.dataset_directory = dataset_directory
@@ -32,8 +42,8 @@ class OpenEarthMapSarDataset(Dataset):
         self.label_path = os.path.join(dataset_directory, "labels")
 
         self.filenames = [f for f in os.listdir(self.optical_path) if f.endswith('.tif')]
-
         self.image_size = image_size
+        self.augment = False
         
         # Define resize
         self.optical_transform = transforms.Compose([
@@ -43,6 +53,17 @@ class OpenEarthMapSarDataset(Dataset):
         
         self.label_transform = transforms.Compose([
             transforms.Resize((self.image_size, self.image_size), interpolation=Image.NEAREST)  # Keep label integers
+        ])
+
+        self.base_agumentation = transforms.v2.Compose([
+            transforms.v2.RandomHorizontalFlip(p=0.5),
+            transforms.v2.RandomVerticalFlip(p=0.5),
+            transforms.v2.RandomRotation(degrees=15),
+        ])
+
+        self.optical_augumentation = transforms.v2.Compose([
+            transforms.v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.01),
+            transforms.v2.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
         ])
 
     def __len__(self):
@@ -78,9 +99,22 @@ class OpenEarthMapSarDataset(Dataset):
         label = self.label_transform(label_images)
         label = torch.from_numpy(np.array(label)).long() - 1
 
-        # transforms
+        # agumentations
+        if self.augment:
+            optical = tv_tensors.Image(optical)
+            sar = tv_tensors.Image(sar)
+            label = tv_tensors.Mask(label)
 
-        return optical, sar, label
+            optical = self.optical_augumentation(optical)
+
+            if torch.rand(1) > 0.5:
+                noise = 1.0 + torch.randn_like(sar) * 0.05
+                sar = torch.clamp(sar * noise, 0, 1)
+
+            optical, sar, label = self.base_agumentation(optical, sar, label)
+
+        # return optical, sar, label
+        return optical.as_subclass(torch.Tensor), sar.as_subclass(torch.Tensor), label.squeeze(0).as_subclass(torch.Tensor)
 
 def get_dataloader(config):
     data = OpenEarthMapSarDataset(config.dataset_root, config.image_size)
@@ -92,7 +126,7 @@ def get_dataloader(config):
     collate_fn = partial(custom_collate, config=config)
 
     train_loader = DataLoader(
-        Subset(data, train_index), 
+        AugmentatSubset(data, train_index, augment=True),
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=collate_fn,
@@ -100,7 +134,7 @@ def get_dataloader(config):
     )
 
     val_loader = DataLoader(
-        Subset(data, val_index), 
+        AugmentatSubset(data, val_index, augment=False), 
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=collate_fn,
@@ -108,7 +142,7 @@ def get_dataloader(config):
     )
 
     test_loader = DataLoader(
-        Subset(data, test_index), 
+        AugmentatSubset(data, test_index, augment=False), 
         batch_size=config.batch_size, 
         shuffle=True, 
         collate_fn=collate_fn,
