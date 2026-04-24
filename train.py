@@ -3,13 +3,17 @@ import dataloader
 import evaluation
 import os
 import json
+import numpy as np
 import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
-from Network import SoftFormer
+# from Network import SoftFormer
+from Network import SoftFormer as SoftFormerCls
+from Network_seg import SoftFormerSeg
+
 
 scaler = torch.amp.GradScaler('cuda')
 
@@ -18,9 +22,8 @@ def train(config):
     start_epoch = 0
     train_loader, val_loader, _ = dataloader.get_dataloader(config)
 
-    # choose image size based on method
-    img_size = config.patch_size if config.method == "classification" else config.image_size
-    model = SoftFormer(
+    model_cls = SoftFormerCls if config.method == "classification" else SoftFormerSeg
+    model = model_cls(
             opt_chans=config.optical_channels,
             sar_chans=config.sar_channels,
             num_class=config.num_classes,
@@ -91,19 +94,19 @@ def train(config):
                 evaluator.update(label.cpu().numpy(), preds.cpu().numpy())
 
         metrics = evaluator.compute_metrics()
+        result = {}
         result.update(metrics)
         
         if isinstance(result['Class_F1'], np.ndarray):
             result['Class_F1'] = result['Class_F1'].tolist()
 
-        result = {}
         results.append(result)
         
         with open(f'metrics_{config.method}_train.jsonl', 'a') as file:
             file.write(json.dumps(result) + '\n')
 
         checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "metrics": metrics}
-        torch.save(checkpoint, os.path.join(config.save_directory, f"model_{config.method}_{epoch}.pth"))
+        torch.save(checkpoint, os.path.join(config.save_directory, f"model_{config.method}_{epoch + 1}.pth"))
         
         if metrics['mIoU'] > best_miou:
             best_miou = metrics['mIoU']
