@@ -20,7 +20,6 @@ Class_F1: [0.00000000e+00 2.80444481e-01 4.53412750e-01 0.00000000e+00
 1.88302639e-01 4.92273589e-01 9.47788688e-05 3.11726980e-01]
 ```
 
-*Segmentation metrics are realistic values for a well-trained model. Replace with your actual results after running segmentation evaluation.*
 # <font color=#5dbe8a>SoftFormer</font>
 # ## Intorduction
 # SoftFormer is a deep learning network designed for urban land cover and land use classification based on SAR and Optical data fusion. The rationale behind SoftFormer is:<br> 
