@@ -1,3 +1,38 @@
+# This is a fork created for a CS 547 class project at SUNY Polytechnic
+## Authors: Jacob Cormier Sawyer Davis
+
+### Setup:
+```
+git clone https://github.com/Jacob5585/CS_547_SoftFormer_cormiej_davissj.git
+cd CS_547_SoftFormer_cormiej_davissj
+conda create --name softformer python=3.12
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130 #other version of cuda will work such as https://download.pytorch.org/whl/cu121
+pip install tqdm scikit-learn tifffile  <add more>
+```
+
+### Addations:
+- Dataloader
+- Patch_embedding
+- Config
+- Data download scripts
+- Evaluation
+- 
+
+### Modifications:
+- Dataset -> BRIEF description of modifications
+- Segmentation -> BRIEF description of modifications
+
+### Run:
+#### Train
+```
+python train -- <finsh>
+```
+
+#### Test
+```
+```
+
+
 # <font color=#5dbe8a>SoftFormer</font>
 ## Intorduction
 SoftFormer is a deep learning network designed for urban land cover and land use classification based on SAR and Optical data fusion. The rationale behind SoftFormer is:<br> 
