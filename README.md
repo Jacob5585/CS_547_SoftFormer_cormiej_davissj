@@ -10,16 +10,19 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 pip install -r requirements.txt
 ```
 
+Download dataset with the download.sh for linux and mac or the download.ps1 for windows. Or go `https://zenodo.org/records/14622048/files/dfc25_track1_trainval.zip?download=1` in your browser
+
 ### Addations:
 - Dataloader
 - Patch_embedding
 - Config
 - Data download scripts
 - Evaluation
-- 
+- Checkpoints
+- Unifed pipeline for differnt model methods
 
 ### Modifications:
-- Dataset -> BRIEF description of modifications
+- Dataset -> Semantic Segmentation dataset with 8 classes since the orginal dataset isn't available
 - Segmentation -> BRIEF description of modifications
 
 ### Run:
