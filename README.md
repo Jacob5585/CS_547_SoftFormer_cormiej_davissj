@@ -7,7 +7,7 @@ git clone https://github.com/Jacob5585/CS_547_SoftFormer_cormiej_davissj.git
 cd CS_547_SoftFormer_cormiej_davissj
 conda create --name softformer python=3.12
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130 #other version of cuda will work such as https://download.pytorch.org/whl/cu121
-pip install tqdm scikit-learn tifffile  <add more>
+pip install -r requirements.txt
 ```
 
 Download dataset with the download.sh for linux and mac or the download.ps1 for windows. Or go `https://zenodo.org/records/14622048/files/dfc25_track1_trainval.zip?download=1` in your browser
@@ -18,20 +18,34 @@ Download dataset with the download.sh for linux and mac or the download.ps1 for 
 - Config
 - Data download scripts
 - Evaluation
+- Checkpoints
+- Unifed pipeline for differnt model methods
 
 ### Modifications:
-- Dataset -> BRIEF description of modifications
+- Dataset -> Semantic Segmentation dataset with 8 classes since the orginal dataset isn't available
 - Segmentation -> Added `Network_seg.py` containing `SoftFormerSeg`, a segmentation variant of the original classification network. The dual-branch encoder (optical + SAR) and feature-level fusion (`FeatFuseBlock`) are reused unchanged. The classification heads (`Classifier`, `DecisionFuseBlock`) are replaced with a lightweight `SegmentationHead` decoder that progressively upsamples the fused 2×2 feature map back to a higher resolution via two bilinear upsample + conv stages, producing per-pixel class logits instead of a single class score per patch.
 
 ### Run:
 #### Train
 ```
-python train -- <finish>
+python train.py --epochs <number of epochs> --method <classification or segmentation> --batch-size <image batch size> --dataset-root <path to the root folder of the dataset> --checkpoint_path <path to checkpoint if being used> 
 ```
 
 #### Test
 ```
 python test.py <path/to/checkpoint.pth> [--method classification|segmentation] [--dataset-root /path/to/data] [--batch-size 32] [--save-preds] [--save-dir test_outputs]
+```
+
+Examples:
+```bash
+# Train segmentation model from scratch
+python train.py --epochs 50 --method segmentation --batch-size 16 --dataset-root /data/mydata
+
+# Train classification model from scratch
+python train.py --epochs 50 --method classification --batch-size 32 --dataset-root /data/mydata
+
+# Resume training segmentation model from checkpoint
+python train.py --epochs 100 --method segmentation --batch-size 16 --dataset-root /data/mydata --checkpoint_path checkpoints/seg_best.pth
 ```
 
 Examples:
