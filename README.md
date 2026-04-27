@@ -25,7 +25,7 @@ pip install -r requirements.txt
 ### Run:
 #### Train
 ```
-python train -- <finsh>
+python train.py --epochs <number of epochs> --method <classification or segmentation> --batch-size <image batch size> --dataset-root <path to the root folder of the dataset> --checkpoint_path <path to checkpoint if being used> 
 ```
 
 #### Test
