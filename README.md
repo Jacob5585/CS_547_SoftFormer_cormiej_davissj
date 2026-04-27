@@ -7,7 +7,7 @@ git clone https://github.com/Jacob5585/CS_547_SoftFormer_cormiej_davissj.git
 cd CS_547_SoftFormer_cormiej_davissj
 conda create --name softformer python=3.12
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130 #other version of cuda will work such as https://download.pytorch.org/whl/cu121
-pip install tqdm scikit-learn tifffile  <add more>
+pip install -r requirements.txt
 ```
 
 ### Addations:
